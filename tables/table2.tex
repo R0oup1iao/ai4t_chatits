@@ -1,0 +1,64 @@
+\begin{table}[ht]
+    \centering
+    \caption{Forecasting accuracy improvements during anomalous events. Comparison of prediction accuracy (MAE and RMSE in km/h, MAPE in \%) for Chat-ITS (Context-Adjusted) against baseline models (Zero-shot and Few-shot) during periods affected by scheduled construction and unplanned incidents. Data evaluated on the anomaly datasets across different prediction horizons. Chat-ITS consistently outperforms baselines, demonstrating the effectiveness of LLM-based contextual adjustment for handling diverse disruptions compared to unadjusted forecasts or standard fine-tuning.} 
+    \resizebox{\textwidth}{!}{\begin{tabular}{@{}cllllllllllll@{}}
+      \toprule
+      \multicolumn{1}{l}{} &
+        \multicolumn{3}{c}{\textbf{15 min}} &
+        \multicolumn{3}{c}{\textbf{30 min}} &
+        \multicolumn{3}{c}{\textbf{60 min}} &
+        \multicolumn{3}{c}{\textbf{Average}} \\ 
+      \multicolumn{1}{l}{} &
+        \multicolumn{1}{c}{\textbf{MAE}} &
+        \multicolumn{1}{c}{\textbf{RMSE}} &
+        \multicolumn{1}{c}{\textbf{MAPE}} &
+        \multicolumn{1}{c}{\textbf{MAE}} &
+        \multicolumn{1}{c}{\textbf{RMSE}} &
+        \multicolumn{1}{c}{\textbf{MAPE}} &
+        \multicolumn{1}{c}{\textbf{MAE}} &
+        \multicolumn{1}{c}{\textbf{RMSE}} &
+        \multicolumn{1}{c}{\textbf{MAPE}} &
+        \multicolumn{1}{c}{\textbf{MAE}} &
+        \multicolumn{1}{c}{\textbf{RMSE}} &
+        \multicolumn{1}{c}{\textbf{MAPE}} \\ \midrule
+    \textbf{Few-shot} &
+      5.11 &
+      8.25 &
+      18.11\% &
+      5.63 &
+      9.27 &
+      21.18\% &
+      6.36 &
+      10.57 &
+      23.56\% &
+      5.59 &
+      9.25 &
+      20.59\% \\
+    \textbf{Zero-shot} &
+      5.19 &
+      8.33 &
+      18.71\% &
+      5.69 &
+      9.33 &
+      21.69\% &
+      6.47 &
+      10.72 &
+      25.90\% &
+      5.67 &
+      9.34 &
+      21.38\% \\
+    \textbf{Chat-ITS} &
+      \textbf{4.86} &
+      \textbf{8.03} &
+      \textbf{16.51\%} &
+      \textbf{5.31} &
+      \textbf{8.98} &
+      \textbf{18.45\%} &
+      \textbf{5.94} &
+      \textbf{10.19} &
+      \textbf{20.58\%} &
+      \textbf{5.27} &
+      \textbf{8.97} &
+      \textbf{18.18\%} \\ \bottomrule
+    \end{tabular}}\label{table:2}
+  \end{table}

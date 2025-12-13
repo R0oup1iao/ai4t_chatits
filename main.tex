@@ -11,7 +11,7 @@
 \usepackage{lineno}
 \usepackage{booktabs}
 \usepackage{rotating}
-\linenumbers
+% \linenumbers
 
 
 %%%%%% Bibliography %%%%%%
@@ -75,7 +75,7 @@ We demonstrate through comprehensive experiments encompassing both routine traff
 \subsection{Deep Learning for Traffic Forecasting}
 Traffic forecasting has evolved from traditional statistical and regression-based approaches to deep learning models capable of capturing complex temporal dynamics. Early studies primarily relied on Recurrent Neural Networks (RNNs), particularly Long Short-Term Memory (LSTM) architectures, to model sequential dependencies in traffic speed and flow data \cite{ma_long_2015, ma_forecasting_2021}. While effective in temporal modeling, these approaches are limited in their ability to explicitly represent the non-Euclidean spatial topology of road networks.
 
-To address this limitation, Spatio-Temporal Graph Neural Networks (STGNNs) have been widely adopted. Representative models such as DCRNN and Graph WaveNet combine graph convolutions with temporal sequence modeling to capture spatial correlations and temporal dynamics simultaneously \cite{li_diffusion_2017, wu_graph_2019}. Subsequent works have extended these frameworks by relaxing the assumption of static spatial dependencies. For instance, Traffic Transformer introduces global–local decoders to hierarchically aggregate spatial features \cite{yan_learning_2022}, while PDFormer incorporates propagation delay-aware attention to explicitly model temporal lags in traffic interactions \cite{jiang_pdformer_2023}.
+To address this limitation, Spatio-Temporal Graph Neural Networks (STGNNs) have been widely adopted. Representative models such as DCRNN \cite{li_diffusion_2017} and Graph WaveNet \cite{wu_graph_2019} combine graph convolutions with temporal sequence modeling to capture spatial correlations and temporal dynamics simultaneously. Subsequent works have extended these frameworks by relaxing the assumption of static spatial dependencies. For instance, Traffic Transformer introduces global–local decoders to hierarchically aggregate spatial features \cite{yan_learning_2022}, while PDFormer incorporates propagation delay-aware attention to explicitly model temporal lags in traffic interactions \cite{jiang_pdformer_2023}.
 
 Despite their expressive power, the necessity of graph convolution has recently been questioned. Empirical studies indicate that simplified spatial modeling strategies can achieve comparable performance with substantially reduced computational overhead. SimST demonstrates that lightweight spatial aggregation approximates the effectiveness of GCN-based methods \cite{liu_we_2023}. Similarly, MLP-based architectures such as ST-MLP \cite{wang_st-mlp_2023} and STID \cite{shao_spatial-temporal_2022} show that concise spatio-temporal identity mappings can outperform complex GNNs by reducing overfitting to noisy spatial correlations.
 
@@ -107,7 +107,7 @@ where $\mathbf{X}_{T+1:T+n}$ is the predicted sequence of $n$ future state vecto
 \subsection{Overall Framework}
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.9\textwidth]{overview.pdf}
+    \includegraphics[width=1\textwidth]{overview.pdf}
     \caption{Overall architecture of the Chat-ITS framework. (A) Stage 1: A pre-trained spatio-temporal foundation model processes historical traffic data $\mathbf{X}_{1:T}$ to generate multiple candidate future trajectories $\{\hat{\mathbf{X}}^{(k)}\}$ representing a baseline probabilistic forecast. (B) Stage 2: Real-time contextual information $\mathbf{s}$, including structured and unstructured event data, is processed by an LLM. The LLM reasons about the event's impact and evaluates the candidate trajectories, selecting or adjusting to the most plausible event-conditioned forecast $\hat{\mathbf{X}}^*$. (C) Stage 3: The adjusted forecast, along with historical dispatch patterns, feeds into the LLM to generate human-readable summary reports and actionable traffic management recommendations.}
     \label{fig:1}
 \end{figure}
@@ -211,28 +211,34 @@ The reasoning path $\mathcal{R}$ explicitly decomposes the task into three logic
 \end{enumerate}
 The final output is the specific trajectory $\hat{\mathbf{X}}^* = \hat{\mathbf{X}}^{(k^*)}$, which represents the event-conditioned forecast.
 
-\subsection{Stage 3: Retrieval-Augmented Decision Support}
-The objective of Stage 3 is to translate the selected mathematical forecast $\hat{\mathbf{X}}^*$ into actionable operational insights. To ensure the recommendations are professionally grounded and adhere to standard operating procedures (SOPs), we employ a Retrieval-Augmented Generation (RAG) mechanism.
+\subsection{Stage 3: LLM-Powered Reporting and Decision Suppor}
 
-\subsubsection{Historical Knowledge Retrieval}
-We construct a historical knowledge base $\mathcal{K} = \{(c_m, a_m)\}_{m=1}^M$, consisting of $M$ pairs of past traffic contexts $c_m$ (incident types, traffic states) and their corresponding expert management actions $a_m$ (e.g., signal timing adjustments, VMS activation).
-To retrieve relevant few-shot examples for the current situation, we utilize a dense retriever. The current context $\mathbf{s}$ and forecast summary $\hat{\mathbf{X}}^*$ are concatenated into a query $q$. We compute the cosine similarity between the embedding of the query $\phi(q)$ and the stored context embeddings $\phi(c_m)$:
-\begin{equation}
-    \mathcal{S}_{rel} = \{ (c_m, a_m) \mid \cos(\phi(q), \phi(c_m)) > \tau \}
-\end{equation}
-where $\phi(\cdot)$ is a pre-trained sentence encoder and $\tau$ is a similarity threshold. The top-$N$ most similar pairs form the reference set $\mathcal{S}_{rel}$, providing the LLM with implicit ``operational priors.''
+The objective of Stage~3 is to transform the selected traffic forecast $\hat{\mathbf{X}}^*$ into structured, actionable outputs by incorporating historical traffic management experience. Rather than relying solely on generative inference, this stage conditions the generation process on retrieved historical cases, thereby grounding the outputs in previously observed traffic contexts and response patterns.
 
-\subsubsection{Actionable Report Generation}
-The final generation step synthesizes the scientific prediction with operational pragmatism. The LLM acts as a conditional generator $G$, producing a response $\mathbf{Y}$ composed of a situation report $\mathbf{Y}_{rep}$ and a recommendation list $\mathbf{Y}_{rec}$:
+\subsubsection{Historical Case Retrieval}
+
+We construct a historical case repository $\mathcal{K} = \{(c_m, a_m)\}_{m=1}^M$, where each entry consists of a past traffic context $c_m$ (e.g., incident type and observed traffic state) and the corresponding management action $a_m$ (e.g., signal control strategies or information dissemination measures). This repository serves as a source of empirical reference for the current scenario.
+
+Given the current system state $\mathbf{s}$ and the selected forecast summary $\hat{\mathbf{X}}^*$, we form a joint query representation $q$ by concatenation. A dense retrieval model is then employed to identify historical cases that are semantically similar to the current situation. Specifically, cosine similarity is computed between the query embedding $\phi(q)$ and the stored context embeddings $\phi(c_m)$:
 \begin{equation}
-    \mathbf{Y} = G(\hat{\mathbf{X}}^*, \mathcal{T}_{ctx}, \mathcal{S}_{rel})
+    \mathcal{S}_{rel} = \{ (c_m, a_m) \mid \cos(\phi(q), \phi(c_m)) > \tau \},
 \end{equation}
-The prompt structure enforces a dual-output format:
+where $\phi(\cdot)$ denotes a pre-trained sentence encoder and $\tau$ is a similarity threshold. The top-$N$ retrieved cases constitute the reference set $\mathcal{S}_{rel}$, which provides contextual constraints for the subsequent generation stage.
+
+\subsubsection{Structured Output Generation}
+
+The final output is produced by a conditional generator $G$, which integrates the traffic forecast, the current contextual description, and the retrieved historical cases:
+\begin{equation}
+    \mathbf{Y} = G(\hat{\mathbf{X}}^*, \mathcal{T}_{ctx}, \mathcal{S}_{rel}).
+\end{equation}
+The generated output $\mathbf{Y}$ is organized into two complementary components:
 \begin{itemize}
-    \item \textbf{Situation Report ($\mathbf{Y}_{rep}$):} A concise summary for decision-makers, highlighting the selected forecast's critical features (e.g., ``Expect 15-minute delays on Corridor B starting at 08:30 due to accident clearance'').
-    \item \textbf{Operational Recommendations ($\mathbf{Y}_{rec}$):} Specific, actionable steps derived from the retrieved examples $\mathcal{S}_{rel}$ but adapted to the current $\hat{\mathbf{X}}^*$ (e.g., ``Implement Signal Plan 4 at Intersection X,'' ``Deploy diversion signage at Exit Y'').
+    \item \textit{Situation Summary} ($\mathbf{Y}_{rep}$): a concise description of the anticipated traffic evolution derived from $\hat{\mathbf{X}}^*$, highlighting key temporal and spatial characteristics relevant to traffic management.
+    \item \textit{Action Suggestions} ($\mathbf{Y}_{rec}$): a set of recommended response measures informed by the retrieved cases in $\mathcal{S}_{rel}$ and adapted to the current forecasted conditions.
 \end{itemize}
-This RAG-based approach mitigates generic or hallucinated advice, ensuring that the system's outputs are aligned with historical best practices.
+
+By conditioning the generation process on historically similar traffic scenarios, this framework encourages consistency with prior management patterns while allowing flexibility to accommodate the specific characteristics of the current forecast.
+
 
 \section{Experiments \& Results}
 To rigorously evaluate the efficacy of the Chat-ITS framework, we present a comprehensive experimental analysis. We first detail the experimental setup—including datasets, implementation details, baselines, and metrics—in Section \ref{sec:setup}. Subsequently, we report the empirical results under routine traffic conditions (Section \ref{sec:routine}), during anomalous events (Section \ref{sec:anomaly}), and analyze the system's explainability (Section \ref{sec:explainability}) and component contributions (Section \ref{sec:ablation}).
@@ -314,18 +320,23 @@ Furthermore, our model displayed remarkable stability across prediction horizons
 \subsection{Enhanced Prediction Accuracy across Diverse Anomalous Events}
 \label{sec:anomaly}
 
-We assessed the core contribution of Chat-ITS—integrating contextual information via LLM—using two distinct datasets: scheduled highway construction projects and unplanned traffic incidents. We compared the final Chat-ITS forecasts against a \textbf{Zero-shot} baseline (foundation model only) and a \textbf{Few-shot/Fine-tuned} baseline (foundation model fine-tuned on anomaly data).
+We evaluate the effectiveness of incorporating textual context into traffic forecasting under four representative anomalous scenarios, covering both routine disruptions and semantically ambiguous events. The proposed Chat-ITS model is compared with a foundation-model baseline that relies solely on historical traffic observations. Figure~\ref{fig:2} shows that, when exposed to anomalous inputs, the baseline frequently produces predictions with large uncertainty, whereas Chat-ITS yields more concentrated and accurate forecasts.
 
-As shown in Table \ref{table:2}, Chat-ITS demonstrated superior prediction accuracy compared to both baselines across all horizons. Compared to the Zero-shot forecast, Chat-ITS consistently reduced prediction errors (e.g., lower MAE). Crucially, Chat-ITS also outperformed the Fine-tuned strategy. This suggests that the LLM's ability to reason from explicit, real-time contextual descriptions (like construction schedules) is a more potent adaptation mechanism than relying solely on learning from limited historical patterns of disruptions.
+Figure~\ref{fig:2} presents illustrative examples across different event types. In common disruption scenarios such as highway construction and traffic incidents (Fig.~\ref{fig:2}(a) and Fig.~\ref{fig:2}(b)), Chat-ITS accurately captures the expected reductions in traffic volume or speed and closely follows the ground-truth trajectories. In contrast, the baseline model exhibits substantial predictive uncertainty and struggles to estimate the severity of the impact.
 
-Figure \ref{fig:2} provides illustrative examples. In a construction scenario (Figure \ref{fig:2}a), the foundation model underestimated the disruption severity. However, Chat-ITS, processing the text "one lane closed for 4 hours," inferred the non-linear impact on capacity and correctly predicted a sharp drop in speed and sustained low volume, aligning with ground truth. In an incident scenario (Figure \ref{fig:2}b), the foundation model assumed a quick recovery. In contrast, the LLM reasoned that the "full closure" and "diversion to bypass" would cause a severe, prolonged speed drop, yielding a forecast that closely tracked the observed traffic collapse. These results highlight how embedding domain-specific reasoning bridges the gap between statistical forecasting and operational reality.
+More pronounced differences are observed in semantically nuanced scenarios. In the parking control case (Fig.~\ref{fig:2}(c)), the baseline extrapolates historical stability and fails to anticipate a complete stop, resulting in a wide predictive interval. By incorporating event descriptions related to destination adjustment, Chat-ITS correctly forecasts a sharp speed reduction approaching zero. Similarly, in the accident with rerouting scenario (Fig.~\ref{fig:2}(d)), the baseline prediction reflects a strong prior association between accidents and congestion, leading to lower-speed estimates. Chat-ITS, however, accounts for the rerouting information and predicts sustained high-speed flow, consistent with the observed outcome.
 
-\begin{figure}
+Overall, these results indicate that integrating event-level textual context enables the model to disambiguate anomalous conditions and to revise statistically dominant patterns when additional semantic information is available.
+
+\begin{figure*}[t]
 \centering
-\includegraphics[width=0.9\textwidth]{figure2_anomaly_forecasts}
-\caption{\textbf{Chat-ITS enhances forecasting accuracy during anomalous events.} Time-series comparison of predicted traffic states versus ground truth. \textbf{(a)}, Highway construction scenario. \textbf{(b)}, Traffic incident scenario. The green dashed line (Chat-ITS) tracks the ground truth (black solid) more accurately than the foundation model baselines (red/blue dotted) by incorporating event context.}
+\includegraphics[width=\textwidth]{figure2.pdf}
+\caption{Time-series predictions under different anomalous traffic scenarios.
+Results are shown for (a) highway construction, (b) traffic incident, (c) parking control, and (d) accident with rerouting.
+The blue shaded region denotes the predictive uncertainty of the baseline model without textual input.
+Predictions from Chat-ITS are shown as an orange dashed line, while the ground truth is shown as a black solid line.}
 \label{fig:2}
-\end{figure}
+\end{figure*}
 
 \input{tables/table2}
 

@@ -1,0 +1,168 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{xcolor}
+\usepackage{enumitem}
+\usepackage{setspace}
+\onehalfspacing
+
+\definecolor{reviewercolor}{RGB}{0,0,180}
+\definecolor{responsecolor}{RGB}{0,0,0}
+\definecolor{changecolor}{RGB}{180,0,0}
+
+\newcommand{\reviewer}[1]{\textcolor{reviewercolor}{\textbf{#1}}}
+\newcommand{\response}[1]{\textcolor{responsecolor}{#1}}
+\newcommand{\change}[1]{\textcolor{changecolor}{\textit{#1}}}
+
+\title{Response to Reviewers \\ \large SemCast: Bridging Semantic Reasoning and Probabilistic Forecasting for Traffic Intelligence}
+\author{}
+\date{}
+
+\begin{document}
+\maketitle
+
+We sincerely thank all the reviewers for their careful reading and constructive feedback. We have thoroughly revised the manuscript to address each concern. Below, we provide point-by-point responses, with \change{manuscript changes highlighted in red italics}.
+
+\section*{Response to Reviewer 1}
+
+\reviewer{Strength acknowledgment:} We appreciate the reviewer's positive assessment of the intuitive design, practical use of LLMs, and improved robustness under anomalies.
+
+\bigskip
+
+\reviewer{W1: No guarantee of event-aware coverage -- Event information is only introduced after candidate trajectories are generated, implicitly assuming the generative model already covers event-induced dynamics, which may not hold true, especially when introducing new event types.}
+
+\response{We thank the reviewer for this insightful observation. We agree that the coverage of the candidate trajectory set is a critical assumption of our framework. We have added a detailed discussion in the revised manuscript (Section 6, Discussion) addressing this concern. Our argument rests on two design choices that promote adequate coverage: (1) nucleus sampling with $K=20$ trajectories and $p=0.9$ generates diverse hypotheses spanning a broad range of the learned predictive distribution, and (2) the foundation model is pre-trained on venue-centric data that includes non-standard traffic patterns (demand surges, rapid dispersal), thereby expanding the model's capacity to generate trajectories reflecting event-like dynamics. Our experimental results in Figure 2 confirm that appropriate candidates were available across diverse anomaly types tested. We acknowledge that for extreme or entirely novel event types whose traffic signatures differ fundamentally from any training data, the candidate set may fail to include sufficiently representative trajectories, and we identify guided sampling and candidate augmentation as important directions for future work.}
+
+\change{See Section 6, paragraph 3 for the added discussion on candidate coverage.}
+
+\bigskip
+
+\reviewer{W2: Limited discussion of scalability -- The computational and latency costs of using large LLMs in the forecasting loop are not sufficiently analyzed.}
+
+\response{We have added a detailed computational analysis in Section 6 of the revised manuscript. The end-to-end inference latency breakdown on a single NVIDIA A100 GPU is as follows: Stage 1 (foundation model, $K=20$ trajectories) $\approx$ 0.8s; Stage 2 (LLM trajectory selection via Qwen2.5-14B with vLLM) $\approx$ 2.1s; Stage 3 (report generation) $\approx$ 3.5s. The total pipeline latency of approximately 6.4 seconds is well within the 5-minute forecasting interval, confirming real-time feasibility. We also discuss further optimization strategies including model quantization (INT4/INT8), smaller LLMs (7B variants), and parallel processing.}
+
+\change{See Section 6, paragraph 4 for the latency breakdown and scalability discussion.}
+
+\bigskip
+
+\reviewer{Minor: LaTeX quotation marks -- There are many LaTeX errors in the use of quotation marks where \texttt{``''} should be used instead of \texttt{""}. This issue appears frequently in Section 5.4; please proofread carefully.}
+
+\response{We have carefully proofread the entire manuscript and corrected all instances of straight quotation marks to proper LaTeX quotation marks (\texttt{``''}). The corrections were made in Sections 5.1 and 5.3.}
+
+\change{All quotation marks have been corrected throughout the manuscript.}
+
+
+\section*{Response to Reviewer 2}
+
+\reviewer{Q1: As the contextual information is incorporated in Stage 2, what happens if Stage 1 does not provide a good candidate trajectory? For example, if there is a car crash, but Stage 1 only outputs recurrent and regular trajectories.}
+
+\response{This is a very important question that echoes Reviewer 1's W1 concern. The probabilistic foundation model in Stage 1 generates $K=20$ diverse trajectories via nucleus sampling ($p=0.9$), which typically covers a wide range of traffic dynamics including both ``normal'' and ``disrupted'' patterns. This is because: (1) the autoregressive sampling with stochastic token selection naturally produces trajectories with varying severity levels, and (2) the foundation model is pre-trained on venue-centric data containing non-standard patterns (event-induced surges, rapid dispersal). Our experimental results across diverse anomalies (highway construction, incidents, parking control, accident with rerouting) demonstrate that appropriate candidates were consistently available. However, we acknowledge this as a limitation for extreme novel events and discuss potential solutions (guided sampling, candidate augmentation) in the revised Discussion section.}
+
+\change{See Section 6, paragraph 3 for the comprehensive discussion.}
+
+\bigskip
+
+\reviewer{Q2: How is the Foundational Probabilistic Forecasting trained? Whether it is trained on multiple datasets?}
+
+\response{We have added detailed training information in Section 5.1. The foundation model was trained jointly on the Beijing spatio-temporal grid data ($N=5{,}797$ cells, 5-minute resolution) and the venue-centric traffic data, without incorporating external datasets. Key training details: 50 epochs, AdamW optimizer with learning rate $5 \times 10^{-4}$, cosine annealing with warm-up, batch size 256, vocabulary size $V=4096$, patch length $P=12$ (1 hour), stride $S=6$ (30 min). Training was conducted on 4$\times$ NVIDIA A100 (80GB) GPUs over approximately 36 hours. The LLM (Qwen2.5-14B-Instruct) was used without any fine-tuning.}
+
+\change{See Section 5.1, ``Foundation Model Training Details'' paragraph.}
+
+\bigskip
+
+\reviewer{Q3: Please provide some statistics and examples of the contextual data.}
+
+\response{We have added a statistical summary of the contextual datasets in Section 5.1 following the data description. The structured construction dataset contains 10,247 events with an average duration of 6.3 hours, spanning 892 road segments (full closure: 18\%, partial closure: 52\%, shoulder work: 30\%). The unstructured anomaly report dataset comprises 8,631 records covering accidents (41\%), vehicle breakdowns (23\%), road hazards (19\%), and other incidents (17\%), with an average description length of 45 characters. Representative examples are provided in the Supplementary Materials (Table S1 and Table S2).}
+
+\change{See Section 5.1, paragraph after ``Contextual Event Data'' for the added statistics.}
+
+\bigskip
+
+\reviewer{Q4: Please further clarify the probabilistic trajectory generation -- what does the randomness come from? Is it from the random seed or other sources?}
+
+\response{We have clarified this in Section 4.1.3. The stochasticity originates exclusively from the nucleus sampling procedure during autoregressive decoding. Each of the $K$ decoding passes independently samples tokens from the truncated categorical distribution using distinct random seeds. The autoregressive nature of generation propagates this randomness across all subsequent time steps: once a different token is sampled at any position, the entire downstream sequence diverges. Consequently, even with a fixed historical input, different sampling runs produce diverse trajectory hypotheses that collectively approximate the model's learned predictive distribution.}
+
+\change{See Section 4.1.3, ``Nucleus Sampling'' paragraph for the added explanation.}
+
+\bigskip
+
+\reviewer{Q5: How to assess the quality of explainable report and recommendations? More experiments should be incorporated.}
+
+\response{We have added a quality assessment discussion in Section 5.3. We employed two complementary approaches: (1) A panel of three domain experts (traffic engineers with $>$5 years of experience) evaluated 50 randomly sampled reports on four dimensions (factual consistency: 4.3/5, actionability: 4.1/5, reasoning coherence: 4.2/5, language clarity: 4.5/5); (2) We compared outputs with and without retrieval augmentation, finding that the RAG approach reduced non-actionable/hallucinated recommendations from 23\% to 6\%. We acknowledge that larger-scale user studies in operational settings are an important future direction.}
+
+\change{See Section 5.3, paragraph after the report examples.}
+
+\bigskip
+
+\reviewer{Q6: Overall, I think the numerical experiments are limited, more discussions and experiments should be included to reflect the performance of the proposed methods in various aspects.}
+
+\response{We appreciate this feedback. In the revised manuscript, we have substantially enriched the experimental analysis by: (1) adding foundation model training details and hyperparameters (Section 5.1); (2) providing contextual data statistics (Section 5.1); (3) expanding the ablation study with detailed descriptions of context degradation methods (Section 5.4); (4) adding a report quality evaluation with expert assessment scores (Section 5.3); (5) providing computational latency analysis (Section 6); and (6) adding a thorough discussion of candidate coverage (Section 6). We believe these additions provide a more comprehensive picture of SemCast's performance characteristics.}
+
+
+\section*{Response to Reviewer 3}
+
+We thank the reviewer for the thorough and constructive comments and the recommendation for minor revision.
+
+\bigskip
+
+\reviewer{Major 1: The mechanism in Stage 2 requires clarification regarding whether the LLM generates new numerical values or strictly selects from the candidate set. The text mentions adjustment, but Equation 10 implies a selection process.}
+
+\response{We have clarified this throughout Section 4.2. The LLM in Stage 2 is restricted to a \textit{pure selection} operation over the pre-generated candidate set $\mathcal{H}$; it does \textbf{not} generate new numerical values or modify existing trajectories. This design ensures that all forecast outputs remain within the realistic traffic distributions learned by the foundation model. We have added explicit clarification both at the beginning of Section 4.2.2 and after Equation (10), stating: ``$k^* \in \{1, \dots, K\}$ is an index into the candidate set, and the output $\hat{\mathbf{X}}^*$ is identical to one of the pre-generated trajectories without any numerical modification.'' The term ``adjustment'' in Section 4.1 (Overall Framework) refers to the conceptual adjustment from an unconditioned baseline forecast distribution to an event-conditioned point forecast, achieved through selection rather than numerical modification.}
+
+\change{See Section 4.2.2 for the clarified mechanism.}
+
+\bigskip
+
+\reviewer{Major 2: The semantic serialization process in Section 4.3.1 needs more detail for reproducibility. Specifically, the authors should define the rules or thresholds used to map numerical gradients to linguistic descriptors.}
+
+\response{We have added the specific threshold-based mapping rules in Section 4.2.1. The $\text{Description}(\cdot)$ function operates on the average speed gradient $\bar{g}^{(k)}$ computed across the prediction horizon, using five deterministic bins: $\bar{g} > 5$ km/h per step $\to$ ``rapidly increasing''; $2 < \bar{g} \leq 5$ $\to$ ``gradually increasing''; $-2 \leq \bar{g} \leq 2$ $\to$ ``stable''; $-5 \leq \bar{g} < -2$ $\to$ ``gradually decreasing''; $\bar{g} < -5$ $\to$ ``rapidly decreasing.'' We also provide a concrete serialization example: a candidate with speed range [25, 55] km/h and $\bar{g} = -6.2$ would be serialized as ``Candidate 3: Trend $\in$ [25, 55] km/h, Dynamics: rapidly decreasing.''}
+
+\change{See Section 4.2.1 for the mapping rules and example.}
+
+\bigskip
+
+\reviewer{Major 3: The comparison with the Chronos baseline needs further discussion regarding fairness. SemCast benefits from pre-training on the specific Beijing dataset, whereas Chronos is evaluated in a zero-shot setting.}
+
+\response{We have added an explicit acknowledgment and discussion in Section 5.1. We now clearly state that this difference in experimental conditions means the performance gap should be interpreted as reflecting the challenge of zero-shot transfer to a specialized domain, rather than a deficiency of the Chronos architecture. We include Chronos to illustrate the current limitations of general foundation models in domain-specific traffic prediction without adaptation, which motivates our approach of domain-specific pre-training.}
+
+\change{See Section 5.1, ``Baseline Implementations'' paragraph.}
+
+\bigskip
+
+\reviewer{Major 4: The computational feasibility for real-time applications should be addressed. Given the use of a 14B parameter LLM for reasoning, the authors need to provide a brief analysis of the inference latency.}
+
+\response{We have added a detailed latency analysis in Section 6. The total pipeline latency is approximately 6.4 seconds (Stage 1: 0.8s, Stage 2: 2.1s, Stage 3: 3.5s) on a single NVIDIA A100, well within the 5-minute forecasting interval. We also discuss optimization strategies including quantization, smaller models, and parallelization.}
+
+\change{See Section 6, paragraph 4 for the latency breakdown.}
+
+\bigskip
+
+\reviewer{Minor 1: The legibility of Figure 2 should be improved. Font sizes for axis labels and legends are too small. Additionally, clearly marking the start and end times of anomalous events on the time axis would help.}
+
+\response{We thank the reviewer for this suggestion. We will improve the legibility of Figure 2 by increasing the font sizes for axis labels and legends, and by adding vertical markers indicating the start and end times of the anomalous events on the time axis. These visual improvements will be incorporated in the camera-ready version.}
+
+\bigskip
+
+\reviewer{Minor 2: In the ablation study, the authors should briefly explain how the vague and incorrect contexts were generated.}
+
+\response{We have added detailed descriptions of the context degradation methods in Section 5.4. The \textit{vague} condition was generated by stripping detailed attributes from event descriptions, retaining only the event category (e.g., reducing ``Two-vehicle collision on Ring Road 3 eastbound near Shuangjing Exit, blocking the rightmost lane'' to ``Traffic incident on Ring Road 3''). The \textit{incorrect} condition was constructed by substituting contradictory information (e.g., providing ``road clear, normal flow'' during an actual accident).}
+
+\change{See Section 5.4, item 3 for the detailed descriptions.}
+
+\bigskip
+
+\reviewer{Minor 3: The role of historical case retrieval in Stage 3 needs clarification. The authors should specify whether the retrieved cases act merely as context for the prompt or if there is a mechanism to enforce adherence to historical patterns.}
+
+\response{We have clarified this in Section 4.3.1. The retrieved cases serve exclusively as \textit{in-context references} appended to the LLM prompt; they do not impose hard constraints or force the model to replicate historical actions. The LLM synthesizes information from retrieved cases alongside the current forecast, enabling it to draw upon proven management patterns while adapting to current conditions. This retrieval-augmented generation (RAG) approach also reduces hallucination risk by anchoring outputs in documented operational precedents.}
+
+\change{See Section 4.3.1, paragraph after Equation (11).}
+
+\bigskip
+
+\reviewer{Minor 4: The notation for the context variable s should be checked for consistency. The manuscript should clearly distinguish between the raw context data and the processed textual representations used in the LLM components.}
+
+\response{We have clarified the notation in the Discussion section, explicitly stating that $\mathbf{s}$ denotes the raw contextual data (e.g., event logs, weather records) while $\mathcal{T}_{ctx}$ refers to its processed textual representation used in the LLM prompts. This distinction is consistent throughout the Methodology section where $\mathbf{s}$ appears in the problem formulation (Section 3) and overall framework description, while $\mathcal{T}_{ctx}$ is introduced in Stage 2 (Section 4.2) specifically for the LLM input.}
+
+\change{See Section 6, paragraph 3, first sentence.}
+
+\end{document}
